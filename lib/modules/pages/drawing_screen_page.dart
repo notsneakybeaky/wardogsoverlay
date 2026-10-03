@@ -34,7 +34,7 @@ const iconCategories = {
 
 // UI look: light black at 50% opacity, square corners
 const panelColor = Color(0x80202020);
-const panelBorder = BorderSide(color: Colors.white24);
+const panelBorder = BorderSide(color: Colors.black);
 const labelStyle = TextStyle(
   color: Colors.white,
   fontSize: 14,
@@ -429,8 +429,8 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cell = size.width / 10; // one big square, in map pixels
-    final small = Paint()..color = Colors.white12..strokeWidth = 2;
-    final big = Paint()..color = Colors.white38..strokeWidth = 5;
+    final small = Paint()..color = Colors.black..strokeWidth = 2;
+    final big = Paint()..color = Colors.black..strokeWidth = 5;
 
     // 3x3 boxes inside each square
     for (var i = 1; i < 30; i++) {
@@ -467,7 +467,7 @@ class GridPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: Colors.white70,
+          color: Colors.black,
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
           shadows: const [Shadow(color: Colors.black, blurRadius: 8)],
