@@ -52,9 +52,12 @@ class MyApp extends StatelessWidget {
       title: 'wardoggie overlaii (furries are weird)',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.amber,
-          brightness: Brightness.dark,
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0x80202020), // 0x80 = 50% opacity, 202020 = light black
+            foregroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(), // sharp square corners
+          ),
         ),
       ),
       home: DrawingScreenPage(),

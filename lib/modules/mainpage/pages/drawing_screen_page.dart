@@ -11,9 +11,9 @@ class DrawingScreenPage extends StatefulWidget {
 }
 
 const maps = {
-  'Bakurani': 'assets/bakurani_map.webp',
-  'Ozeti': 'assets/ozeti_map.webp',
-  'Zesty': 'assets/zesty_map.webp',
+  'Bakurani': 'assets/hd/bakurani_map.webp',
+  'Ozeti': 'assets/hd/ozeti_map.webp',
+  'Zesty': 'assets/hd/zesty_map.webp',
 };
 
 class Stroke {
@@ -25,7 +25,8 @@ class Stroke {
 class DrawingScreenPageState extends State<DrawingScreenPage> {
   String mapValue = maps.values.first;
   final List<Stroke> _strokes = [];
-  var _showMenu = false;
+  bool _showMenu = false;
+  bool _draw = false;
   var _showMenuX;
   var _showMenuY;
 
@@ -56,36 +57,71 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
               )),
             ),
             Expanded(
-              child: InteractiveViewer(
-                maxScale: 20.0,
-                child: GestureDetector(
-                  onTertiaryTapDown: (e) {
-                    setState(() {
-                      _showMenu = true;
-                      _showMenuX = e.localPosition.dx;
-                      _showMenuY = e.localPosition.dy;
-                    });
-                  },
-                  child: Stack(
-                    children: [
-                      Image.asset(mapValue),
-                      if (_showMenu)
+              child: GestureDetector(
+                onTertiaryTapDown: (e) {
+                  setState(() {
+                    _showMenu = true;
+                    _showMenuX = e.localPosition.dx;
+                    _showMenuY = e.localPosition.dy;
+                  });
+                },
+                onTapDown: (e) {
+                  setState(() {
+                    _draw = false;
+                  });
+                },
+                child: Stack(
+                  children: [
+                    InteractiveViewer(
+                      panEnabled: !_draw,
+                      maxScale: 30.0,
+                      child: FittedBox(
+                        child: SizedBox(
+                            width: 8192,
+                            height: 8192,
+                            child: GestureDetector(
+                              onPanStart: (e) {
+                                if (_draw){
+                                  setState(() {
+                                    _strokes.add(Stroke(Colors.red)..points.add(e.localPosition));
+                                  });
+                                }
+                              },
+                              onPanUpdate: (e) {
+                                if (_draw){
+                                  setState(() {
+                                    _strokes.last.points.add(e.localPosition);
+                                  });
+                                }
+                              },
+                              child: Stack(children: [
+                                Image.asset(mapValue),
+                                CustomPaint(painter: StrokePainter(_strokes),)
+                              ]),
+                            ),
+                        )
+                      ),
+                    ),
+                    if (_showMenu)
                       Positioned(
                         left: _showMenuX,
                         top: _showMenuY,
                         child: Row(
+                          spacing: 6,
                           children: [
-                            IconButton(
-                                onPressed: () => {
-
-                                },
-                                icon:
+                            IconButton.filled(
+                              onPressed: () => {
+                                setState(() {
+                                  _showMenu = false;
+                                  _draw = true;
+                                })
+                              },
+                              icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
                             )
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -94,4 +130,25 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
       ),
     );
   }
+}
+
+
+class StrokePainter extends CustomPainter {
+  StrokePainter(this.strokes);
+  final List<Stroke> strokes;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in strokes) {
+      final paint = Paint()
+        ..color = s.color
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.square;
+      canvas.drawLine(s.points.first, s.points.last, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => true;
 }
