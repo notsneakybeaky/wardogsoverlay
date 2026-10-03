@@ -16,10 +16,49 @@ const maps = {
   'Zesty': 'assets/hd/zesty_map.webp',
 };
 
+// WARDOGS has 3 teams, markers and lines are tinted with the team color
+const teams = {
+  'red': Colors.red,
+  'blue': Colors.blue,
+  'yellow': Colors.yellow,
+};
+
+// assets/icons/<name>.png
+const markerIcons = [
+  'attack', 'defend', 'enemy_infantry', 'enemy_vehicle', 'rally_point',
+  'waypoint', 'observe', 'medic', 'ammo', 'artillery', 'mine',
+];
+const infantryIcons = ['infantry', 'manpad', 'rpg', 'anti_tank', 'machine_gunner'];
+
 class Stroke {
-  Stroke(this.color);
+  Stroke(this.color, {this.team = 'red'});
   final List<Offset> points = [];
   var color;
+  final String team;
+
+  Map<String, dynamic> toJson() => {
+        'type': 'stroke',
+        'team': team,
+        'x1': points.first.dx, 'y1': points.first.dy,
+        'x2': points.last.dx, 'y2': points.last.dy,
+      };
+  factory Stroke.fromJson(Map<String, dynamic> j) =>
+      Stroke(teams[j['team']] ?? Colors.red, team: j['team'])
+        ..points.addAll([
+          Offset((j['x1'] as num).toDouble(), (j['y1'] as num).toDouble()),
+          Offset((j['x2'] as num).toDouble(), (j['y2'] as num).toDouble()),
+        ]);
+}
+
+class PlacedIcon {
+  PlacedIcon(this.name, this.pos, this.team);
+  final String name; // 'rally_point' -> assets/icons/rally_point.png
+  final Offset pos;  // map pixels, 0..8192
+  final String team;
+
+  Map<String, dynamic> toJson() => {'type': 'icon', 'icon': name, 'team': team, 'x': pos.dx, 'y': pos.dy};
+  factory PlacedIcon.fromJson(Map<String, dynamic> j) =>
+      PlacedIcon(j['icon'], Offset((j['x'] as num).toDouble(), (j['y'] as num).toDouble()), j['team']);
 }
 
 class DrawingScreenPageState extends State<DrawingScreenPage> {
@@ -29,6 +68,10 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
   bool _draw = false;
   var _showMenuX;
   var _showMenuY;
+  String _team = teams.keys.first;
+  final List<PlacedIcon> _icons = [];
+  String? _placing; // icon picked from the menu, null = not placing
+  bool _showInfantry = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,24 +80,51 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
       body: Center(
         child: Column(
           children: [
-            Card(
-              color: Colors.black,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadiusGeometry.all(Radius.circular(8)),
-              ),
-              child: (DropdownButton<String>(
-                padding: EdgeInsets.all(5),
-                value: mapValue,
-                onChanged: (String? value) {
-                  setState(() {
-                    mapValue = value!;
-                  });
-                },
-                items: [
-                  for (final e in maps.entries)
-                    DropdownMenuItem(value: e.value, child: Text(e.key)),
-                ],
-              )),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Card(
+                  color: Colors.black,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadiusGeometry.all(Radius.circular(8)),
+                  ),
+                  child: (DropdownButton<String>(
+                    padding: EdgeInsets.all(5),
+                    value: mapValue,
+                    onChanged: (String? value) {
+                      setState(() {
+                        mapValue = value!;
+                      });
+                    },
+                    items: [
+                      for (final e in maps.entries)
+                        DropdownMenuItem(value: e.value, child: Text(e.key)),
+                    ],
+                  )),
+                ),
+                Card(
+                  color: Colors.black,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadiusGeometry.all(Radius.circular(8)),
+                  ),
+                  child: DropdownButton<String>(
+                    padding: EdgeInsets.all(5),
+                    value: _team,
+                    onChanged: (String? value) {
+                      setState(() {
+                        _team = value!;
+                      });
+                    },
+                    items: [
+                      for (final t in teams.entries)
+                        DropdownMenuItem(
+                          value: t.key,
+                          child: Text(t.key, style: TextStyle(color: t.value)),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             Expanded(
               child: GestureDetector(
@@ -80,23 +150,35 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                             width: 8192,
                             height: 8192,
                             child: GestureDetector(
-                              onPanStart: (e) {
-                                if (_draw){
-                                  setState(() {
-                                    _strokes.add(Stroke(Colors.red)..points.add(e.localPosition));
-                                  });
-                                }
-                              },
-                              onPanUpdate: (e) {
-                                if (_draw){
-                                  setState(() {
-                                    _strokes.last.points.add(e.localPosition);
-                                  });
-                                }
+                              // null when not drawing, so the InteractiveViewer can pan
+                              onPanStart: _draw ? (e) {
+                                setState(() {
+                                  _strokes.add(Stroke(teams[_team], team: _team)..points.add(e.localPosition));
+                                });
+                              } : null,
+                              onPanUpdate: _draw ? (e) {
+                                setState(() {
+                                  _strokes.last.points.add(e.localPosition);
+                                });
+                              } : null,
+                              onTapUp: _placing == null ? null : (e) {
+                                setState(() {
+                                  _icons.add(PlacedIcon(_placing!, e.localPosition, _team));
+                                  _placing = null;
+                                });
                               },
                               child: Stack(children: [
                                 Image.asset(mapValue),
-                                CustomPaint(painter: StrokePainter(_strokes),)
+                                CustomPaint(size: const Size(8192, 8192), painter: GridPainter()),
+                                CustomPaint(painter: StrokePainter(_strokes),),
+                                for (final i in _icons)
+                                  Positioned(
+                                    left: i.pos.dx - 100,
+                                    top: i.pos.dy - 100,
+                                    width: 200,
+                                    height: 200,
+                                    child: Image.asset('assets/icons/${i.name}.png', color: teams[i.team]),
+                                  ),
                               ]),
                             ),
                         )
@@ -117,7 +199,54 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                 })
                               },
                               icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
-                            )
+                            ),
+                            // pan mode: stop drawing / placing
+                            IconButton.filled(
+                              onPressed: () {
+                                setState(() {
+                                  _showMenu = false;
+                                  _draw = false;
+                                  _placing = null;
+                                });
+                              },
+                              icon: const Icon(Icons.pan_tool, size: 24),
+                            ),
+                            for (final name in markerIcons)
+                              IconButton.filled(
+                                tooltip: name,
+                                onPressed: () {
+                                  setState(() {
+                                    _placing = name;
+                                    _draw = false;
+                                    _showMenu = false;
+                                  });
+                                },
+                                icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
+                              ),
+                            // infantry group, opens the infantry icons
+                            IconButton.filled(
+                              tooltip: 'infantry',
+                              onPressed: () {
+                                setState(() {
+                                  _showInfantry = !_showInfantry;
+                                });
+                              },
+                              icon: Image.asset('assets/icons/infantry.png', width: 24, height: 24),
+                            ),
+                            if (_showInfantry)
+                              for (final name in infantryIcons)
+                                IconButton.filled(
+                                  tooltip: name,
+                                  onPressed: () {
+                                    setState(() {
+                                      _placing = name;
+                                      _draw = false;
+                                      _showMenu = false;
+                                      _showInfantry = false;
+                                    });
+                                  },
+                                  icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
+                                ),
                           ],
                         ),
                       ),
@@ -151,4 +280,20 @@ class StrokePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => true;
+}
+
+// plain 10x10 grid, A-J across, 1-10 down
+class GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = Colors.white24..strokeWidth = 2;
+    for (var i = 1; i < 10; i++) {
+      final x = size.width * i / 10, y = size.height * i / 10;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
