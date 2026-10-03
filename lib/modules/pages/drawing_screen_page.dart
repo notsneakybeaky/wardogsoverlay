@@ -26,10 +26,10 @@ const teams = {
 // Squad style: the menu shows these categories first, clicking one opens its icons.
 // Icons load from assets/icons/<name>.png, the first icon is the category's button.
 const iconCategories = {
-  'orders': ['attack', 'defend', 'waypoint', 'rally_point', 'observe'],
-  'enemy': ['enemy_infantry', 'enemy_vehicle', 'mine'],
-  'support': ['medic', 'ammo', 'artillery'],
-  'infantry': ['infantry', 'manpad', 'rpg', 'anti_tank', 'machine_gunner'],
+  'orders': ['marker/attack', 'marker/defend', 'marker/observe'],
+  'enemy': ['marker/enemy_infantry', 'marker/enemy_vehicle', 'marker/mine'],
+  'support': ['marker/ammo', 'marker/artillery'],
+  'infantry': ['infantry/infantry', 'infantry/manpad', 'infantry/rpg', 'infantry/anti_tank', 'infantry/machine_gunner'],
 };
 
 // UI look: light black at 50% opacity, square corners
@@ -214,6 +214,9 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                 width: 8192,
                                 height: 8192,
                                 child: GestureDetector(
+                                  onSecondaryTapDown: _draw ? (e) {
+                                    _draw = false;
+                                  } : null,
                                   // null when not drawing, so the InteractiveViewer can pan
                                   onPanStart: _draw ? (e) {
                                     setState(() {
@@ -288,7 +291,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                       _erase = false;
                                     })
                                   },
-                                  icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
+                                  icon: Icon(Icons.arrow_right_alt, size: 24, color: Colors.white,),
                                 ),
                                 // pan mode: stop drawing / placing
                                 IconButton.filled(
@@ -327,11 +330,11 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                       _remove(_mine.last);
                                     });
                                   },
-                                  icon: const Icon(Icons.undo, size: 24),
+                                  icon: const Icon(Icons.undo, size: 24, color: Colors.white,),
                                 ),
                                 // clear: remove everything you drew or placed
                                 IconButton.filled(
-                                  tooltip: 'clear mine',
+                                  tooltip: 'clear all',
                                   style: _buttonStyle(false),
                                   onPressed: _mine.isEmpty ? null : () {
                                     setState(() {
@@ -340,7 +343,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                       }
                                     });
                                   },
-                                  icon: const Icon(Icons.delete_sweep, size: 24),
+                                  icon: const Icon(Icons.delete_sweep, size: 24, color: Colors.white),
                                 ),
                                 for (final c in iconCategories.entries)
                                   IconButton.filled(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
-import './modules/mainpage/pages/drawing_screen_page.dart';
+import 'modules/pages/drawing_screen_page.dart';
 
 void main() async {
 
