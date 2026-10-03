@@ -84,6 +84,24 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
   String _team = teams.keys.first;
   final List<PlacedIcon> _icons = [];
   String? _placing; // icon picked from the menu, null = not placing
+  bool _erase = false; // eraser mode: tap one of your lines or icons to remove it
+  final List<Object> _mine = []; // strokes and icons this player made, oldest first
+
+  // remove one of your own strokes or icons from the map
+  void _remove(Object item) {
+    _mine.remove(item);
+    _strokes.remove(item);
+    _icons.remove(item);
+  }
+
+  // your newest stroke or icon under the tap, or null
+  Object? _mineAt(Offset p) {
+    for (final item in _mine.reversed) {
+      if (item is PlacedIcon && (item.pos - p).distance < 100) return item;
+      if (item is Stroke && _distanceToLine(p, item.points.first, item.points.last) < 60) return item;
+    }
+    return null;
+  }
   String? _category; // open category in the menu, null = top level
 
   // square, see-through menu buttons; the active one gets a team-colored border
@@ -199,7 +217,9 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                   // null when not drawing, so the InteractiveViewer can pan
                                   onPanStart: _draw ? (e) {
                                     setState(() {
-                                      _strokes.add(Stroke(teams[_team], team: _team)..points.add(e.localPosition));
+                                      final stroke = Stroke(teams[_team], team: _team)..points.add(e.localPosition);
+                                      _strokes.add(stroke);
+                                      _mine.add(stroke);
                                     });
                                   } : null,
                                   onPanUpdate: _draw ? (e) {
@@ -207,10 +227,17 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                       _strokes.last.points.add(e.localPosition);
                                     });
                                   } : null,
-                                  onTapUp: _placing == null ? null : (e) {
+                                  onTapUp: (_placing == null && !_erase) ? null : (e) {
                                     setState(() {
-                                      _icons.add(PlacedIcon(_placing!, e.localPosition, _team));
-                                      _placing = null;
+                                      if (_erase) {
+                                        final hit = _mineAt(e.localPosition);
+                                        if (hit != null) _remove(hit);
+                                      } else {
+                                        final icon = PlacedIcon(_placing!, e.localPosition, _team);
+                                        _icons.add(icon);
+                                        _mine.add(icon);
+                                        _placing = null;
+                                      }
                                     });
                                   },
                                   child: Stack(children: [
@@ -258,6 +285,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                     setState(() {
                                       _showMenu = false;
                                       _draw = true;
+                                      _erase = false;
                                     })
                                   },
                                   icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
@@ -265,15 +293,54 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                 // pan mode: stop drawing / placing
                                 IconButton.filled(
                                   tooltip: 'pan',
-                                  style: _buttonStyle(!_draw && _placing == null),
+                                  style: _buttonStyle(!_draw && !_erase && _placing == null),
                                   onPressed: () {
                                     setState(() {
                                       _showMenu = false;
                                       _draw = false;
+                                      _erase = false;
                                       _placing = null;
                                     });
                                   },
                                   icon: const Icon(Icons.pan_tool, size: 24),
+                                ),
+                                // eraser: tap one of your own lines or icons to remove it
+                                IconButton.filled(
+                                  tooltip: 'erase',
+                                  style: _buttonStyle(_erase),
+                                  onPressed: () {
+                                    setState(() {
+                                      _showMenu = false;
+                                      _erase = true;
+                                      _draw = false;
+                                      _placing = null;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.auto_fix_normal, size: 24),
+                                ),
+                                // undo: remove the last thing you drew or placed
+                                IconButton.filled(
+                                  tooltip: 'undo',
+                                  style: _buttonStyle(false),
+                                  onPressed: _mine.isEmpty ? null : () {
+                                    setState(() {
+                                      _remove(_mine.last);
+                                    });
+                                  },
+                                  icon: const Icon(Icons.undo, size: 24),
+                                ),
+                                // clear: remove everything you drew or placed
+                                IconButton.filled(
+                                  tooltip: 'clear mine',
+                                  style: _buttonStyle(false),
+                                  onPressed: _mine.isEmpty ? null : () {
+                                    setState(() {
+                                      for (final item in _mine.toList()) {
+                                        _remove(item);
+                                      }
+                                    });
+                                  },
+                                  icon: const Icon(Icons.delete_sweep, size: 24),
                                 ),
                                 for (final c in iconCategories.entries)
                                   IconButton.filled(
@@ -307,6 +374,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                       setState(() {
                                         _placing = name;
                                         _draw = false;
+                                        _erase = false;
                                         _showMenu = false;
                                         _category = null;
                                       });
@@ -364,4 +432,13 @@ class GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+// shortest distance from p to the line a-b, in map pixels
+double _distanceToLine(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final len2 = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (len2 == 0) return (p - a).distance;
+  final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0).toDouble();
+  return (p - (a + ab * t)).distance;
 }
