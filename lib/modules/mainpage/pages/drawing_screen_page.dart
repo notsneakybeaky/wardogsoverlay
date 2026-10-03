@@ -30,6 +30,17 @@ const markerIcons = [
 ];
 const infantryIcons = ['infantry', 'manpad', 'rpg', 'anti_tank', 'machine_gunner'];
 
+// UI look: light black at 50% opacity, square corners
+const panelColor = Color(0x80202020);
+const panelBorder = BorderSide(color: Colors.white24);
+const labelStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 14,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 1.2,
+);
+const menuWidth = 306.0; // 6 buttons of 44 + spacing
+
 class Stroke {
   Stroke(this.color, {this.team = 'red'});
   final List<Offset> points = [];
@@ -73,6 +84,21 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
   String? _placing; // icon picked from the menu, null = not placing
   bool _showInfantry = false;
 
+  // square, see-through menu buttons; the active one gets a team-colored border
+  ButtonStyle _buttonStyle(bool active) => IconButton.styleFrom(
+        backgroundColor: panelColor,
+        foregroundColor: Colors.white,
+        hoverColor: Colors.white24,
+        highlightColor: Colors.white38,
+        fixedSize: const Size(44, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: active
+              ? BorderSide(color: teams[_team]!, width: 2)
+              : panelBorder,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,12 +110,17 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Card(
-                  color: Colors.black,
+                  color: panelColor,
                   shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadiusGeometry.all(Radius.circular(8)),
+                    borderRadius: BorderRadiusGeometry.all(Radius.circular(4)),
+                    side: panelBorder,
                   ),
                   child: (DropdownButton<String>(
-                    padding: EdgeInsets.all(5),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    style: labelStyle,
+                    dropdownColor: const Color(0xE0202020),
+                    iconEnabledColor: Colors.white70,
+                    underline: const SizedBox(),
                     value: mapValue,
                     onChanged: (String? value) {
                       setState(() {
@@ -98,17 +129,22 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                     },
                     items: [
                       for (final e in maps.entries)
-                        DropdownMenuItem(value: e.value, child: Text(e.key)),
+                        DropdownMenuItem(value: e.value, child: Text(e.key.toUpperCase())),
                     ],
                   )),
                 ),
                 Card(
-                  color: Colors.black,
+                  color: panelColor,
                   shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadiusGeometry.all(Radius.circular(8)),
+                    borderRadius: BorderRadiusGeometry.all(Radius.circular(4)),
+                    side: panelBorder,
                   ),
                   child: DropdownButton<String>(
-                    padding: EdgeInsets.all(5),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    style: labelStyle,
+                    dropdownColor: const Color(0xE0202020),
+                    iconEnabledColor: Colors.white70,
+                    underline: const SizedBox(),
                     value: _team,
                     onChanged: (String? value) {
                       setState(() {
@@ -119,7 +155,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                       for (final t in teams.entries)
                         DropdownMenuItem(
                           value: t.key,
-                          child: Text(t.key, style: TextStyle(color: t.value)),
+                          child: Text(t.key.toUpperCase(), style: labelStyle.copyWith(color: t.value)),
                         ),
                     ],
                   ),
@@ -142,112 +178,139 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                 },
                 child: Stack(
                   children: [
-                    InteractiveViewer(
-                      panEnabled: !_draw,
-                      maxScale: 30.0,
-                      child: FittedBox(
-                        child: SizedBox(
-                            width: 8192,
-                            height: 8192,
-                            child: GestureDetector(
-                              // null when not drawing, so the InteractiveViewer can pan
-                              onPanStart: _draw ? (e) {
-                                setState(() {
-                                  _strokes.add(Stroke(teams[_team], team: _team)..points.add(e.localPosition));
-                                });
-                              } : null,
-                              onPanUpdate: _draw ? (e) {
-                                setState(() {
-                                  _strokes.last.points.add(e.localPosition);
-                                });
-                              } : null,
-                              onTapUp: _placing == null ? null : (e) {
-                                setState(() {
-                                  _icons.add(PlacedIcon(_placing!, e.localPosition, _team));
-                                  _placing = null;
-                                });
-                              },
-                              child: Stack(children: [
-                                Image.asset(mapValue),
-                                CustomPaint(size: const Size(8192, 8192), painter: GridPainter()),
-                                CustomPaint(painter: StrokePainter(_strokes),),
-                                for (final i in _icons)
-                                  Positioned(
-                                    left: i.pos.dx - 100,
-                                    top: i.pos.dy - 100,
-                                    width: 200,
-                                    height: 200,
-                                    child: Image.asset('assets/icons/${i.name}.png', color: teams[i.team]),
-                                  ),
-                              ]),
-                            ),
-                        )
+                    // map sits against the right edge of the screen, with a thin border
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white38, width: 2),
+                        ),
+                        child: InteractiveViewer(
+                          panEnabled: !_draw,
+                          maxScale: 30.0,
+                          child: FittedBox(
+                            child: SizedBox(
+                                width: 8192,
+                                height: 8192,
+                                child: GestureDetector(
+                                  // null when not drawing, so the InteractiveViewer can pan
+                                  onPanStart: _draw ? (e) {
+                                    setState(() {
+                                      _strokes.add(Stroke(teams[_team], team: _team)..points.add(e.localPosition));
+                                    });
+                                  } : null,
+                                  onPanUpdate: _draw ? (e) {
+                                    setState(() {
+                                      _strokes.last.points.add(e.localPosition);
+                                    });
+                                  } : null,
+                                  onTapUp: _placing == null ? null : (e) {
+                                    setState(() {
+                                      _icons.add(PlacedIcon(_placing!, e.localPosition, _team));
+                                      _placing = null;
+                                    });
+                                  },
+                                  child: Stack(children: [
+                                    Image.asset(mapValue),
+                                    CustomPaint(size: const Size(8192, 8192), painter: GridPainter()),
+                                    CustomPaint(painter: StrokePainter(_strokes),),
+                                    for (final i in _icons)
+                                      Positioned(
+                                        left: i.pos.dx - 100,
+                                        top: i.pos.dy - 100,
+                                        width: 200,
+                                        height: 200,
+                                        child: Image.asset('assets/icons/${i.name}.png', color: teams[i.team]),
+                                      ),
+                                  ]),
+                                ),
+                            )
+                          ),
+                        ),
                       ),
                     ),
                     if (_showMenu)
                       Positioned(
-                        left: _showMenuX,
+                        // keep the menu on screen when you click near the right edge
+                        left: (_showMenuX as double).clamp(0.0, MediaQuery.sizeOf(context).width - menuWidth - 16),
                         top: _showMenuY,
-                        child: Row(
-                          spacing: 6,
-                          children: [
-                            IconButton.filled(
-                              onPressed: () => {
-                                setState(() {
-                                  _showMenu = false;
-                                  _draw = true;
-                                })
-                              },
-                              icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
-                            ),
-                            // pan mode: stop drawing / placing
-                            IconButton.filled(
-                              onPressed: () {
-                                setState(() {
-                                  _showMenu = false;
-                                  _draw = false;
-                                  _placing = null;
-                                });
-                              },
-                              icon: const Icon(Icons.pan_tool, size: 24),
-                            ),
-                            for (final name in markerIcons)
+                        child: Container(
+                          width: menuWidth,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xB0101010),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.fromBorderSide(panelBorder),
+                          ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
                               IconButton.filled(
-                                tooltip: name,
+                                tooltip: 'draw',
+                                style: _buttonStyle(_draw),
+                                onPressed: () => {
+                                  setState(() {
+                                    _showMenu = false;
+                                    _draw = true;
+                                  })
+                                },
+                                icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
+                              ),
+                              // pan mode: stop drawing / placing
+                              IconButton.filled(
+                                tooltip: 'pan',
+                                style: _buttonStyle(!_draw && _placing == null),
                                 onPressed: () {
                                   setState(() {
-                                    _placing = name;
-                                    _draw = false;
                                     _showMenu = false;
+                                    _draw = false;
+                                    _placing = null;
                                   });
                                 },
-                                icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
+                                icon: const Icon(Icons.pan_tool, size: 24),
                               ),
-                            // infantry group, opens the infantry icons
-                            IconButton.filled(
-                              tooltip: 'infantry',
-                              onPressed: () {
-                                setState(() {
-                                  _showInfantry = !_showInfantry;
-                                });
-                              },
-                              icon: Image.asset('assets/icons/infantry.png', width: 24, height: 24),
-                            ),
-                            if (_showInfantry)
-                              for (final name in infantryIcons)
+                              for (final name in markerIcons)
                                 IconButton.filled(
                                   tooltip: name,
+                                  style: _buttonStyle(_placing == name),
                                   onPressed: () {
                                     setState(() {
                                       _placing = name;
                                       _draw = false;
                                       _showMenu = false;
-                                      _showInfantry = false;
                                     });
                                   },
                                   icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
                                 ),
-                          ],
+                              // infantry group, opens the infantry icons
+                              IconButton.filled(
+                                tooltip: 'infantry',
+                                style: _buttonStyle(_showInfantry),
+                                onPressed: () {
+                                  setState(() {
+                                    _showInfantry = !_showInfantry;
+                                  });
+                                },
+                                icon: Image.asset('assets/icons/infantry.png', width: 24, height: 24),
+                              ),
+                              if (_showInfantry)
+                                for (final name in infantryIcons)
+                                  IconButton.filled(
+                                    tooltip: name,
+                                    style: _buttonStyle(_placing == name),
+                                    onPressed: () {
+                                      setState(() {
+                                        _placing = name;
+                                        _draw = false;
+                                        _showMenu = false;
+                                        _showInfantry = false;
+                                      });
+                                    },
+                                    icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
+                                  ),
+                            ],
+                          ),
                         ),
                       ),
                   ],
