@@ -245,7 +245,6 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                   },
                                   child: Stack(children: [
                                     Image.asset(mapValue),
-                                    CustomPaint(size: const Size(8192, 8192), painter: GridPainter()),
                                     CustomPaint(painter: StrokePainter(_strokes),),
                                     for (final i in _icons)
                                       Positioned(
@@ -419,70 +418,6 @@ class StrokePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => true;
-}
-
-// Squad style grid: 10x10 big squares (A-J across, 1-10 down), each split into 3x3 boxes.
-// Letters along the top, numbers down the left, and every square has its name (A1, B4...) in its top-left.
-class GridPainter extends CustomPainter {
-  static const letters = 'ABCDEFGHIJ';
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cell = size.width / 10; // one big square, in map pixels
-    final small = Paint()..color = Colors.white12..strokeWidth = 2;
-    final big = Paint()..color = Colors.white38..strokeWidth = 5;
-
-    // 3x3 boxes inside each square
-    for (var i = 1; i < 30; i++) {
-      if (i % 3 == 0) continue;
-      final x = cell * i / 3, y = size.height * i / 30;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), small);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), small);
-    }
-    // big squares
-    for (var i = 1; i < 10; i++) {
-      final x = cell * i, y = size.height * i / 10;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), big);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), big);
-    }
-
-    // letters along the top edge, numbers down the left edge
-    for (var i = 0; i < 10; i++) {
-      _text(canvas, letters[i], 120, Offset(cell * i + cell / 2, 10), center: true);
-      _text(canvas, '${i + 1}', 120, Offset(10, size.height * i / 10 + size.height / 20), center: false, middle: true);
-    }
-
-    // name of every square in its top-left corner
-    for (var col = 0; col < 10; col++) {
-      for (var row = 0; row < 10; row++) {
-        _text(canvas, '${letters[col]}${row + 1}', 60,
-            Offset(cell * col + 16, size.height * row / 10 + 12));
-      }
-    }
-  }
-
-  void _text(Canvas canvas, String text, double fontSize, Offset at,
-      {bool center = false, bool middle = false}) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: Colors.white70,
-          fontSize: fontSize,
-          fontWeight: FontWeight.bold,
-          shadows: const [Shadow(color: Colors.black, blurRadius: 8)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(
-      center ? at.dx - tp.width / 2 : at.dx,
-      middle ? at.dy - tp.height / 2 : at.dy,
-    ));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
 // shortest distance from p to the line a-b, in map pixels
