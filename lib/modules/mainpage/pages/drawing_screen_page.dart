@@ -23,12 +23,14 @@ const teams = {
   'yellow': Colors.yellow,
 };
 
-// assets/icons/<name>.png
-const markerIcons = [
-  'attack', 'defend', 'enemy_infantry', 'enemy_vehicle', 'rally_point',
-  'waypoint', 'observe', 'medic', 'ammo', 'artillery', 'mine',
-];
-const infantryIcons = ['infantry', 'manpad', 'rpg', 'anti_tank', 'machine_gunner'];
+// Squad style: the menu shows these categories first, clicking one opens its icons.
+// Icons load from assets/icons/<name>.png, the first icon is the category's button.
+const iconCategories = {
+  'orders': ['attack', 'defend', 'waypoint', 'rally_point', 'observe'],
+  'enemy': ['enemy_infantry', 'enemy_vehicle', 'mine'],
+  'support': ['medic', 'ammo', 'artillery'],
+  'infantry': ['infantry', 'manpad', 'rpg', 'anti_tank', 'machine_gunner'],
+};
 
 // UI look: light black at 50% opacity, square corners
 const panelColor = Color(0x80202020);
@@ -82,7 +84,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
   String _team = teams.keys.first;
   final List<PlacedIcon> _icons = [];
   String? _placing; // icon picked from the menu, null = not placing
-  bool _showInfantry = false;
+  String? _category; // open category in the menu, null = top level
 
   // square, see-through menu buttons; the active one gets a team-colored border
   ButtonStyle _buttonStyle(bool active) => IconButton.styleFrom(
@@ -169,6 +171,7 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                     _showMenu = true;
                     _showMenuX = e.localPosition.dx;
                     _showMenuY = e.localPosition.dy;
+                    _category = null;
                   });
                 },
                 onTapDown: (e) {
@@ -246,56 +249,57 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              IconButton.filled(
-                                tooltip: 'draw',
-                                style: _buttonStyle(_draw),
-                                onPressed: () => {
-                                  setState(() {
-                                    _showMenu = false;
-                                    _draw = true;
-                                  })
-                                },
-                                icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
-                              ),
-                              // pan mode: stop drawing / placing
-                              IconButton.filled(
-                                tooltip: 'pan',
-                                style: _buttonStyle(!_draw && _placing == null),
-                                onPressed: () {
-                                  setState(() {
-                                    _showMenu = false;
-                                    _draw = false;
-                                    _placing = null;
-                                  });
-                                },
-                                icon: const Icon(Icons.pan_tool, size: 24),
-                              ),
-                              for (final name in markerIcons)
+                              // top level: draw, pan and the categories
+                              if (_category == null) ...[
                                 IconButton.filled(
-                                  tooltip: name,
-                                  style: _buttonStyle(_placing == name),
+                                  tooltip: 'draw',
+                                  style: _buttonStyle(_draw),
+                                  onPressed: () => {
+                                    setState(() {
+                                      _showMenu = false;
+                                      _draw = true;
+                                    })
+                                  },
+                                  icon: Image.asset('assets/icons/draw_arrow.png', width: 24, height: 24,),
+                                ),
+                                // pan mode: stop drawing / placing
+                                IconButton.filled(
+                                  tooltip: 'pan',
+                                  style: _buttonStyle(!_draw && _placing == null),
                                   onPressed: () {
                                     setState(() {
-                                      _placing = name;
-                                      _draw = false;
                                       _showMenu = false;
+                                      _draw = false;
+                                      _placing = null;
                                     });
                                   },
-                                  icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
+                                  icon: const Icon(Icons.pan_tool, size: 24),
                                 ),
-                              // infantry group, opens the infantry icons
-                              IconButton.filled(
-                                tooltip: 'infantry',
-                                style: _buttonStyle(_showInfantry),
-                                onPressed: () {
-                                  setState(() {
-                                    _showInfantry = !_showInfantry;
-                                  });
-                                },
-                                icon: Image.asset('assets/icons/infantry.png', width: 24, height: 24),
-                              ),
-                              if (_showInfantry)
-                                for (final name in infantryIcons)
+                                for (final c in iconCategories.entries)
+                                  IconButton.filled(
+                                    tooltip: c.key,
+                                    style: _buttonStyle(c.value.contains(_placing)),
+                                    onPressed: () {
+                                      setState(() {
+                                        _category = c.key;
+                                      });
+                                    },
+                                    icon: Image.asset('assets/icons/${c.value.first}.png', width: 24, height: 24),
+                                  ),
+                              ],
+                              // inside a category: back, then its icons
+                              if (_category != null) ...[
+                                IconButton.filled(
+                                  tooltip: 'back',
+                                  style: _buttonStyle(false),
+                                  onPressed: () {
+                                    setState(() {
+                                      _category = null;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.arrow_back, size: 24),
+                                ),
+                                for (final name in iconCategories[_category]!)
                                   IconButton.filled(
                                     tooltip: name,
                                     style: _buttonStyle(_placing == name),
@@ -304,11 +308,12 @@ class DrawingScreenPageState extends State<DrawingScreenPage> {
                                         _placing = name;
                                         _draw = false;
                                         _showMenu = false;
-                                        _showInfantry = false;
+                                        _category = null;
                                       });
                                     },
                                     icon: Image.asset('assets/icons/$name.png', width: 24, height: 24),
                                   ),
+                              ],
                             ],
                           ),
                         ),
